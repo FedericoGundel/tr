@@ -1,0 +1,37 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.example.secureauth_dashboard"
+    compileSdk = 36  // ✅ Actualizado para cumplir con los plugins
+
+    defaultConfig {
+        applicationId "com.example.secureauth_dashboard"
+        minSdkVersion flutter.minSdkVersion
+        targetSdk = 36  // ✅ Actualizado para cumplir con los plugins
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "androidx.multidex:multidex:2.0.1"
+    implementation 'com.google.android.material:material:1.9.0'
+}

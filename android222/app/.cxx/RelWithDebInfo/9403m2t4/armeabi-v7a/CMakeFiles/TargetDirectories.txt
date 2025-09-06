@@ -1,0 +1,2 @@
+C:/Users/fede_/Desktop/BARBERIA/secureauth_dashboard/android/app/.cxx/RelWithDebInfo/9403m2t4/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/fede_/Desktop/BARBERIA/secureauth_dashboard/android/app/.cxx/RelWithDebInfo/9403m2t4/armeabi-v7a/CMakeFiles/rebuild_cache.dir
