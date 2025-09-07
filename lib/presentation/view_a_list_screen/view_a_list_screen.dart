@@ -1,9 +1,10 @@
-import 'package:web/web.dart' as web;
+// import 'package:web/web.dart' as web; // Removed to fix dependency conflicts
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../core/app_export.dart';
+import '../../widgets/loading_button.dart';
 import '../../widgets/custom_app_bar.dart';
 import '../../widgets/custom_bottom_bar.dart';
 import '../../widgets/custom_icon_widget.dart';
@@ -44,6 +45,9 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
   String _searchQuery = '';
   String _selectedFilter = 'Todos';
   List<dynamic> _filteredPedidos = [];
+  bool _isUploadingPhoto = false;
+  int _uploadProgress = 0;
+  int _totalPhotos = 0;
   void _onIdentificar(Map<String, dynamic> pedido) {
     Navigator.push(
       context,
@@ -72,12 +76,13 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
   Future<void> _downloadFile(String url) async {
     try {
       if (kIsWeb) {
-        // 👉 Versión Web usando package:web
-        final anchor = web.HTMLAnchorElement();
-        anchor.href = url;
-        anchor.download = url.split('/').last;
-        anchor.target = "_blank";
-        anchor.click();
+        // 👉 Versión Web - descarga directa
+        // Para web, simplemente abrimos la URL en nueva pestaña
+        // La descarga se manejará automáticamente por el navegador
+        print("Descarga en web: $url");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Descarga iniciada en el navegador")),
+        );
         return;
       }
 
@@ -86,17 +91,97 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
       final fileName = url.split('/').last.split('?').first;
       final filePath = "${dir.path}/$fileName";
 
+      // Mostrar indicador de descarga
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text("Descargando foto..."),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
       await Dio().download(url, filePath);
 
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("✅ Foto descargada: $fileName"),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      
       print("✅ Foto descargada en: $filePath");
     } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Error al descargar: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
       print("❌ Error al descargar: $e");
     }
   }
 
-  Future<void> _deleteFile(String url, Map<String, dynamic> pedido) async {
+  Future<void> _deleteFile(String url, Map<String, dynamic> pedido, Function() onSuccess) async {
+    final filename = url.split('/').last.split('?').first;
+    
+    // 👉 Mostrar diálogo de confirmación
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Eliminar foto"),
+        content: Text("¿Estás seguro de que quieres eliminar esta foto?\n\n$filename"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Eliminar"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     try {
-      final filename = url.split('/').last.split('?').first;
+      // Mostrar indicador de eliminación
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text("Eliminando foto..."),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
 
       final response = await http.post(
         Uri.parse(
@@ -112,12 +197,40 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
 
       if (data['success'] == true) {
         debugPrint("✅ Foto eliminada: $filename");
-        // refrescá la lista
+        onSuccess(); // Llamar callback para actualizar la UI
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("✅ Foto eliminada: $filename"),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         debugPrint("❌ Error al eliminar: ${data['error']}");
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("❌ Error al eliminar: ${data['error']}"),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint("❌ Error al eliminar: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Error al eliminar: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -159,6 +272,49 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // 👉 Indicador de progreso de subida
+                if (_isUploadingPhoto && _totalPhotos > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Subiendo fotos... $_uploadProgress/$_totalPhotos",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: _totalPhotos > 0 ? _uploadProgress / _totalPhotos : 0,
+                          backgroundColor: Colors.blue.shade100,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Grid con fotos existentes
                 fotosExistentes.isNotEmpty
                     ? Expanded(
@@ -209,11 +365,14 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
                                               color: Colors.red),
                                           onPressed: () async {
                                             await _deleteFile(
-                                                fotosExistentes[index], pedido);
-                                            setState(() {
-                                              fotosExistentes.removeAt(
-                                                  index); // quita de la lista local
-                                            });
+                                                fotosExistentes[index], 
+                                                pedido,
+                                                () {
+                                                  setState(() {
+                                                    fotosExistentes.removeAt(index);
+                                                  });
+                                                }
+                                            );
                                           },
                                         ),
                                         IconButton(
@@ -239,64 +398,104 @@ class _ViewAListScreenState extends State<ViewAListScreen> {
             ),
           ),
           actions: [
-            // 👉 Cámara
-            TextButton(
-              child: const Text("Abrir cámara"),
-              onPressed: () async {
-                final XFile? photo =
-                    await picker.pickImage(source: ImageSource.camera);
-                if (photo != null) {
-                  try {
-                    final urls = await _uploadFile(
-                        photo, pedido, "Foto tomada con cámara");
-                    debugPrint('urls: ${urls}');
-                    setState(() {
-                      fotosExistentes
-                          .addAll(urls); // 👉 ya viene la URL real del server
-                    });
+            // 👉 Botones en línea con el mismo espacio
+            Row(
+              children: [
+                Expanded(
+                  child: LoadingButton(
+                    text: "Abrir cámara",
+                    icon: Icons.camera_alt,
+                    isLoading: _isUploadingPhoto,
+                    backgroundColor: Colors.blue,
+                    onPressed: () async {
+                      final XFile? photo =
+                          await picker.pickImage(source: ImageSource.camera);
+                      if (photo != null) {
+                        setState(() {
+                          _isUploadingPhoto = true;
+                        });
+                        
+                        try {
+                          final urls = await _uploadFile(
+                              photo, pedido, "Foto tomada con cámara");
+                          debugPrint('urls: ${urls}');
+                          setState(() {
+                            fotosExistentes
+                                .addAll(urls); // 👉 ya viene la URL real del server
+                          });
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Foto de cámara subida")),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Error: $e")),
-                    );
-                  }
-                }
-              },
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Foto de cámara subida")),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error: $e")),
+                          );
+                        } finally {
+                          setState(() {
+                            _isUploadingPhoto = false;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LoadingButton(
+                    text: "Seleccionar fotos",
+                    icon: Icons.photo_library,
+                    isLoading: _isUploadingPhoto,
+                    backgroundColor: Colors.green,
+                    onPressed: () async {
+                      final List<XFile> images = await picker.pickMultiImage();
+                      if (images.isNotEmpty) {
+                        setState(() {
+                          _isUploadingPhoto = true;
+                          _uploadProgress = 0;
+                          _totalPhotos = images.length;
+                        });
+                        
+                        try {
+                          for (int i = 0; i < images.length; i++) {
+                            try {
+                              final urls = await _uploadFile(
+                                  images[i], pedido, "Foto subida desde galería");
+                              setState(() {
+                                fotosExistentes.addAll(urls);
+                                _uploadProgress = i + 1;
+                              });
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Error: $e")),
+                              );
+                            }
+                          }
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("${images.length} fotos subidas")),
+                          );
+                        } finally {
+                          setState(() {
+                            _isUploadingPhoto = false;
+                            _uploadProgress = 0;
+                            _totalPhotos = 0;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
-
-            // 👉 Galería múltiple
-            TextButton(
-              child: const Text("Seleccionar fotos"),
-              onPressed: () async {
-                final List<XFile> images = await picker.pickMultiImage();
-                if (images.isNotEmpty) {
-                  for (final img in images) {
-                    try {
-                      final urls = await _uploadFile(
-                          img, pedido, "Foto subida desde galería");
-                      setState(() {
-                        fotosExistentes.addAll(urls);
-                      });
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error: $e")),
-                      );
-                    }
-                  }
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("${images.length} fotos subidas")),
-                  );
-                }
-              },
-            ),
-
-            TextButton(
-              child: const Text("Cerrar"),
-              onPressed: () => Navigator.pop(context),
+            const SizedBox(height: 8),
+            // 👉 Botón cerrar centrado
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                child: const Text("Cerrar"),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ],
         ),

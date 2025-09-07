@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../services/conductor_service.dart';
+import '../../core/app_export.dart';
+import '../../widgets/loading_button.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -21,6 +23,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Map<String, dynamic>? _pedido;
 
   bool _loading = true;
+  bool _isSubmittingManual = false;
+  bool _isScanning = false;
 
   @override
   void initState() {
@@ -111,7 +115,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton(
+                  child: LoadingButton(
+                    text: "Confirmar",
+                    isLoading: _isSubmittingManual,
                     onPressed: () async {
                       final numero = int.tryParse(numeroController.text);
                       final idRegistro = int.tryParse(
@@ -123,6 +129,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         );
                         return;
                       }
+
+                      setState(() {
+                        _isSubmittingManual = true;
+                      });
 
                       Navigator.pop(context); // cerrar dialogo
 
@@ -224,12 +234,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
                             ],
                           ),
                         );
+                      } finally {
+                        setState(() {
+                          _isSubmittingManual = false;
+                        });
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text("Confirmar"),
                   ),
                 ),
               ],
@@ -260,6 +270,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
               debugPrint("📸 Código leído: $raw");
               if (!context.mounted) return;
               Navigator.pop(context);
+
+              setState(() {
+                _isScanning = true;
+              });
 
               try {
                 if (raw.length < 13) throw Exception("Código inválido");
@@ -418,6 +432,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     ),
                   );
                 }
+              } finally {
+                setState(() {
+                  _isScanning = false;
+                });
               }
             },
           ),
@@ -546,25 +564,25 @@ class _ScannerScreenState extends State<ScannerScreen> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _openScanner,
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text("Escanear"),
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 2.h),
-                    ),
+                  child: LoadingIconButton(
+                    text: "Escanear",
+                    icon: Icons.qr_code_scanner,
+                    onPressed: _isScanning ? null : _openScanner,
+                    isLoading: _isScanning,
+                    height: 6.h,
+                    padding: EdgeInsets.symmetric(vertical: 2.h),
                   ),
                 ),
                 SizedBox(width: 2.w),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _openManualEntry,
-                    label: const Text("Entrada manual"),
-                    icon: const Icon(Icons.edit),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      padding: EdgeInsets.symmetric(vertical: 2.h),
-                    ),
+                  child: LoadingIconButton(
+                    text: "Entrada manual",
+                    icon: Icons.edit,
+                    onPressed: _isSubmittingManual ? null : _openManualEntry,
+                    isLoading: _isSubmittingManual,
+                    backgroundColor: Colors.amber,
+                    height: 6.h,
+                    padding: EdgeInsets.symmetric(vertical: 2.h),
                   ),
                 ),
               ],

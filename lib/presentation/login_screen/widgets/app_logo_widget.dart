@@ -91,7 +91,7 @@ class _AppLogoWidgetState extends State<AppLogoWidget>
                   ),
                   child: Center(
                     child: SvgPicture.asset(
-                      'images/lo.svg',   // 👈 tu archivo
+                      'assets/images/lo.svg',   // 👈 ruta completa
                       colorFilter: ColorFilter.mode(
                         colorScheme.onPrimary,   // 👈 para pintarlo con el color del tema
                         BlendMode.srcIn,

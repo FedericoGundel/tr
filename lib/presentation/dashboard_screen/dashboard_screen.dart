@@ -111,7 +111,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage("images/cam.png"), // 👈 tu imagen
+            image: AssetImage("assets/images/cam.png"), // 👈 ruta completa
             fit: BoxFit.cover, // ajusta la imagen al tamaño de la pantalla
           ),
         ),
@@ -161,8 +161,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       actions: [
-
-
+        IconButton(
+          icon: const Icon(Icons.person),
+          onPressed: () {
+            Navigator.pushNamed(context, '/profile-screen');
+          },
+          tooltip: 'Perfil',
+        ),
       ],
     );
   }

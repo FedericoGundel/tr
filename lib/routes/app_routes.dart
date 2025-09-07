@@ -4,6 +4,7 @@ import '../presentation/login_screen/login_screen.dart';
 import '../presentation/view_a_list_screen/view_a_list_screen.dart';
 import '../presentation/scanner_screen/scanner_screen.dart';
 import '../presentation/entrega_screen/entrega_screen.dart';
+import '../presentation/profile_screen/profile_screen.dart';
 
 class AppRoutes {
   // TODO: Add your routes here
@@ -13,6 +14,7 @@ class AppRoutes {
   static const String viewAList = '/view-a-list-screen';
   static const String scanner = '/scanner-screen';
   static const String entrega = '/entrega-screen';
+  static const String profile = '/profile-screen';
 
   static Map<String, WidgetBuilder> routes = {
     initial: (context) => const LoginScreen(),
@@ -21,6 +23,7 @@ class AppRoutes {
     viewAList: (context) => const ViewAListScreen(),
     scanner: (context) => const ScannerScreen(),
     entrega: (context) => const EntregaScreen(),
+    profile: (context) => const ProfileScreen(),
 
     // TODO: Add your other routes here
   };
