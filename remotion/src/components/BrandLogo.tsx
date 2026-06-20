@@ -1,13 +1,12 @@
-import { COLORS, GRADIENT, fontFamily } from "../theme";
+import { Img, staticFile } from "remotion";
+import { GRADIENT, fontFamily } from "../theme";
 
-// Approximation of the EnerGym logo: a gradient ring with a flexed-arm glyph
-// and the "ENERGYM" gradient wordmark. Drop the real logo PNG into public/
-// and swap this for an <Img> once available for exact brand fidelity.
+// Real EnerGym icon (cropped from the app's actual logo) paired with a CSS
+// gradient wordmark, which stays crisp at any size unlike a rasterized one.
 export const BrandLogo: React.FC<{
   size?: number;
   showWordmark?: boolean;
 }> = ({ size = 120, showWordmark = true }) => {
-  const ring = size;
   return (
     <div
       style={{
@@ -18,33 +17,15 @@ export const BrandLogo: React.FC<{
         fontFamily,
       }}
     >
-      <div
+      <Img
+        src={staticFile("logo-icon.png")}
         style={{
-          width: ring,
-          height: ring,
+          width: size,
+          height: size,
           borderRadius: "50%",
-          background: GRADIENT,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: `0 0 ${size * 0.5}px ${COLORS.pink}55`,
+          objectFit: "cover",
         }}
-      >
-        <div
-          style={{
-            width: ring * 0.82,
-            height: ring * 0.82,
-            borderRadius: "50%",
-            backgroundColor: COLORS.background,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: ring * 0.45,
-          }}
-        >
-          💪
-        </div>
-      </div>
+      />
       {showWordmark ? (
         <span
           style={{

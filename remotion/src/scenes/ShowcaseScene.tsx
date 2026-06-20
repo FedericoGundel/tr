@@ -3,6 +3,7 @@ import {
   Easing,
   interpolate,
   useCurrentFrame,
+  useVideoConfig,
 } from "remotion";
 import { Background } from "../components/Background";
 import { PhoneMockup } from "../components/PhoneMockup";
@@ -41,8 +42,26 @@ const screenOpacity = (frame: number, i: number) => {
   return fadeIn - fadeOut;
 };
 
+const PHONE_ASPECT = 19.5 / 9;
+const CAPTION_HEIGHT = 80;
+const TOP_PADDING = 70;
+const GAP = 36;
+const SIDE_MARGIN = 60;
+
 export const ShowcaseScene: React.FC = () => {
   const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+
+  // Fit the phone mockup within whatever space is left after the heading,
+  // so the same scene works for vertical, square, or horizontal canvases.
+  const availableHeight =
+    height - TOP_PADDING - CAPTION_HEIGHT - GAP - SIDE_MARGIN;
+  const availableWidth = width - SIDE_MARGIN * 2;
+  const phoneWidth = Math.min(
+    availableWidth,
+    availableHeight / PHONE_ASPECT,
+    560,
+  );
 
   const phoneY = interpolate(frame, [0, 30], [120, 0], {
     easing: Easing.bezier(0.16, 1, 0.3, 1),
@@ -99,7 +118,7 @@ export const ShowcaseScene: React.FC = () => {
             position: "relative",
           }}
         >
-          <PhoneMockup width={560}>
+          <PhoneMockup width={phoneWidth}>
             {SCREENS.map(({ Comp }, i) => {
               const op = screenOpacity(frame, i);
               return (

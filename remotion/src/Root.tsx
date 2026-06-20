@@ -21,6 +21,16 @@ export const RemotionRoot: React.FC = () => {
         schema={energymPromoSchema}
         defaultProps={defaultEnergymProps}
       />
+      <Composition
+        id="EnergymPromoSquare"
+        component={EnergymPromo}
+        durationInFrames={TOTAL_DURATION}
+        fps={FPS}
+        width={1080}
+        height={1080}
+        schema={energymPromoSchema}
+        defaultProps={defaultEnergymProps}
+      />
     </>
   );
 };
