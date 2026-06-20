@@ -13,13 +13,26 @@ const {
 } = require("@whiskeysockets/baileys");
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
+const http = require("http");
 
 // Logger silencioso (Baileys es muy verboso por defecto).
 const logger = pino({ level: "silent" });
 
+// Carpeta donde se guarda la sesion. En Railway/host con Volume, apunta
+// esta variable al volumen persistente (ej: AUTH_DIR=/data/auth).
+const AUTH_DIR = process.env.AUTH_DIR || "auth";
+
+// Si seteas PAIRING_NUMBER (ej: 549351xxxxxxx, solo numeros con codigo de pais),
+// el bot pide un CODIGO DE VINCULACION en vez de QR. Ideal para servidores sin
+// pantalla (Railway): vinculas desde WhatsApp -> Dispositivos vinculados ->
+// "Vincular con numero de telefono" e ingresas el codigo de 8 caracteres.
+const PAIRING_NUMBER = (process.env.PAIRING_NUMBER || "").replace(/[^0-9]/g, "");
+
+// Estado de conexion, expuesto por el servidor HTTP de healthcheck.
+let connected = false;
+
 async function start() {
-  // Guarda la sesion en ./auth para no tener que escanear el QR cada vez.
-  const { state, saveCreds } = await useMultiFileAuthState("auth");
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
@@ -30,6 +43,22 @@ async function start() {
     markOnlineOnConnect: false,
   });
 
+  // Si usamos codigo de vinculacion y todavia no estamos registrados, pedirlo.
+  if (PAIRING_NUMBER && !sock.authState.creds.registered) {
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(PAIRING_NUMBER);
+        console.log("\n==============================");
+        console.log("  CODIGO DE VINCULACION: " + code);
+        console.log("  WhatsApp -> Dispositivos vinculados ->");
+        console.log("  'Vincular con numero de telefono' -> ingresa el codigo");
+        console.log("==============================\n");
+      } catch (e) {
+        console.error("No se pudo generar el codigo de vinculacion:", e?.message || e);
+      }
+    }, 3000);
+  }
+
   // Guarda credenciales cuando cambian.
   sock.ev.on("creds.update", saveCreds);
 
@@ -37,19 +66,22 @@ async function start() {
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    // Solo mostramos QR si NO estamos usando codigo de vinculacion.
+    if (qr && !PAIRING_NUMBER) {
       console.log("\nEscanea este QR con WhatsApp:");
       console.log("(WhatsApp -> Dispositivos vinculados -> Vincular dispositivo)\n");
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === "open") {
+      connected = true;
       console.log("\n✅ Conectado a WhatsApp. El bot esta escuchando mensajes.\n");
     }
 
     if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
+      connected = false;
       console.log("Conexion cerrada.", loggedOut ? "Sesion cerrada." : "Reconectando...");
       if (!loggedOut) start();
       else console.log("Borra la carpeta 'auth' y volve a iniciar para vincular de nuevo.");
@@ -112,5 +144,15 @@ function handleMessage(text) {
   // Respuesta por defecto (comenta esta linea si no queres que responda a todo).
   return "No entendi 🤔. Escribi *menu* para ver las opciones.";
 }
+
+// Mini servidor HTTP: hosts como Railway esperan que el proceso escuche en un
+// puerto y lo usan como healthcheck. Tambien sirve para ver el estado.
+const PORT = process.env.PORT || 3000;
+http
+  .createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, connected }));
+  })
+  .listen(PORT, () => console.log(`HTTP healthcheck en puerto ${PORT}`));
 
 start().catch((err) => console.error("Error al iniciar:", err));
