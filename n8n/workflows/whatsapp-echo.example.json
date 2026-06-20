@@ -1,0 +1,77 @@
+{
+  "name": "WhatsApp Echo (ejemplo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-in",
+      "name": "Webhook (Meta -> n8n)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "whatsapp"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae el primer mensaje entrante del payload de WhatsApp Cloud API.\nconst body = $input.first().json.body || $input.first().json;\nconst value = body?.entry?.[0]?.changes?.[0]?.value;\nconst msg = value?.messages?.[0];\nif (!msg) {\n  // Puede ser un status/delivery; no respondemos.\n  return [];\n}\nreturn [{\n  json: {\n    from: msg.from,\n    text: msg.text?.body || '',\n    phoneNumberId: value?.metadata?.phone_number_id\n  }\n}];"
+      },
+      "id": "parse",
+      "name": "Parsear mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.from }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"Recibi: {{ $json.text }}\" }\n}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Responder por WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Responder 200 a Meta",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (Meta -> n8n)": {
+      "main": [[{ "node": "Parsear mensaje", "type": "main", "index": 0 }]]
+    },
+    "Parsear mensaje": {
+      "main": [[{ "node": "Responder por WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Responder por WhatsApp": {
+      "main": [[{ "node": "Responder 200 a Meta", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

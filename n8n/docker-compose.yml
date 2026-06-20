@@ -1,0 +1,40 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # --- Acceso ---
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      # URL publica usada para los webhooks (la del tunel cuando uses WhatsApp).
+      # Si no la seteas, n8n arma la URL con N8N_HOST/PORT/PROTOCOL.
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/Argentina/Buenos_Aires}
+      - TZ=${GENERIC_TIMEZONE:-America/Argentina/Buenos_Aires}
+      # Silencia el warning de permisos del archivo de config en local.
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Carpeta para importar/exportar workflows de ejemplo.
+      - ./workflows:/workflows
+
+  # --- Tunel HTTPS opcional para WhatsApp Cloud API ---
+  # Meta exige webhooks HTTPS publicos. En local no los tenes, asi que
+  # cloudflared crea un tunel https://<algo>.trycloudflare.com -> n8n.
+  # Se activa solo si arrancas con: docker compose --profile tunnel up -d
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: n8n-tunnel
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on:
+      - n8n
+
+volumes:
+  n8n_data:
